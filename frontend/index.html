@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EV Charging Risk Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Noto+Sans+SC:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.11.2/css/all.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --blue:   #3b82f6;
+      --sky:    #0ea5e9;
+      --green:  #10b981;
+      --amber:  #f59e0b;
+      --red:    #ef4444;
+      --t1: #0f172a;
+      --t2: #334155;
+      --t3: #64748b;
+      --t4: #94a3b8;
+    }
+    html, body {
+      font-family: "Noto Sans SC", "Montserrat", sans-serif;
+      background: linear-gradient(150deg, #eef2ff 0%, #e0f2fe 50%, #f0fdf4 100%);
+      color: var(--t1);
+      min-height: 100%;
+      margin: 0;
+    }
+    .card {
+      background: rgba(255,255,255,0.78);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(203,213,225,0.65);
+      border-radius: 1.5rem;
+      box-shadow: 0 4px 28px rgba(59,130,246,0.07), 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .title-grad {
+      background: linear-gradient(120deg, #1d4ed8 0%, #0ea5e9 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .badge {
+      display:inline-flex;align-items:center;gap:5px;
+      padding:3px 12px;border-radius:999px;
+      border:1px solid rgba(59,130,246,0.28);
+      background:rgba(59,130,246,0.07);
+      font-size:0.72rem;color:var(--blue);font-weight:700;
+    }
+    .dot { width:9px;height:9px;border-radius:999px;flex-shrink:0; }
+    .dot-idle    { background:#cbd5e1; }
+    .dot-loading { background:var(--amber);box-shadow:0 0 8px rgba(245,158,11,.6);animation:blink 1s infinite; }
+    .dot-ok      { background:var(--green);box-shadow:0 0 8px rgba(16,185,129,.6); }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+    .slider {
+      -webkit-appearance:none;appearance:none;
+      width:100%;height:5px;border-radius:999px;
+      background:linear-gradient(90deg,#3b82f6,#bfdbfe);
+      outline:none;cursor:pointer;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance:none;
+      width:18px;height:18px;border-radius:999px;
+      background:#fff;border:2.5px solid #3b82f6;
+      box-shadow:0 0 0 4px rgba(59,130,246,.18);cursor:pointer;
+    }
+    .line-art path,.line-art polyline,.line-art line,.line-art rect,.line-art circle {
+      stroke:#93c5fd;fill:none;stroke-width:1.5;
+    }
+    .loading-overlay { opacity:.5;pointer-events:none;transition:.2s; }
+    .qrow { display:grid;grid-template-columns:1fr 1fr;gap:5px 0;font-size:0.82rem; }
+  </style>
+</head>
+<body>
+<div style="max-width:1920px;margin:0 auto;padding:24px 20px;">
+
+  <!-- Header -->
+  <header class="card" style="padding:24px 32px;margin-bottom:16px;">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+      <div>
+        <p style="font-size:0.7rem;letter-spacing:0.3em;font-weight:700;color:var(--t3);text-transform:uppercase;margin:0;">Simulation · Risk Analysis · Queuing Theory</p>
+        <h1 style="font-size:clamp(1.8rem,4.5vw,3.5rem);font-weight:900;line-height:1.1;margin:8px 0 0;">
+          <span style="color:var(--t1);">充电站净利润风险 </span><span class="title-grad">BENTO DASHBOARD</span>
+        </h1>
+        <p style="color:var(--t3);margin:8px 0 0;font-size:0.86rem;">M/M/c Baseline &rarr; M/G/c Correction &rarr; Monte Carlo 1000 Runs</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 18px;border-radius:999px;border:1px solid #e2e8f0;background:rgba(255,255,255,0.6);">
+        <span id="status-dot" class="dot dot-idle"></span>
+        <span id="status-text" style="font-size:0.82rem;color:var(--t2);">System Ready / 系统就绪</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid -->
+  <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;">
+
+    <!-- LEFT: Controls -->
+    <aside class="card" style="padding:22px;align-self:start;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <h2 style="font-size:1rem;font-weight:800;color:var(--t1);margin:0;">
+          <i class="fas fa-sliders-h" style="color:var(--blue);margin-right:7px;"></i>参数控制
+          <span style="font-size:0.68rem;font-weight:600;color:var(--t3);margin-left:5px;">Console</span>
+        </h2>
+        <span class="badge"><i class="fas fa-bolt"></i>Live</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.82rem;">
+            <span style="color:var(--t2);">服务费 / Service Fee</span>
+            <span id="sfee-val" style="font-weight:700;color:var(--blue);">0%</span>
+          </div>
+          <input type="range" id="sfee" class="slider" min="-50" max="100" step="1" value="0" />
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.82rem;">
+            <span style="color:var(--t2);">购电成本 / Electricity Cost</span>
+            <span id="ecost-val" style="font-weight:700;color:var(--blue);">0%</span>
+          </div>
+          <input type="range" id="ecost" class="slider" min="-30" max="30" step="1" value="0" />
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.82rem;">
+            <span style="color:var(--t2);">客流量 / Demand</span>
+            <span id="occ-val" style="font-weight:700;color:var(--blue);">0%</span>
+          </div>
+          <input type="range" id="occ" class="slider" min="-50" max="100" step="1" value="0" />
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.82rem;">
+            <span style="color:var(--t2);">等待惩罚 / Wait Penalty</span>
+            <span id="wcost-val" style="font-weight:700;color:var(--blue);">0%</span>
+          </div>
+          <input type="range" id="wcost" class="slider" min="-50" max="200" step="1" value="0" />
+        </div>
+      </div>
+
+      <!-- Queue Snapshot -->
+      <div style="margin-top:20px;padding:14px;border-radius:12px;background:rgba(241,245,249,0.9);border:1px solid #e2e8f0;">
+        <h3 style="font-size:0.68rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--t3);margin:0 0 10px;font-weight:700;">
+          <i class="fas fa-wave-square" style="margin-right:5px;color:var(--blue);"></i>Queue Snapshot
+        </h3>
+        <div class="qrow">
+          <div style="color:var(--t3);">充电桩 c</div><div id="p-c" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
+          <div style="color:var(--t3);">到达率 λ</div><div id="p-lambda" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
+          <div style="color:var(--t3);">服务率 μ</div><div id="p-mu" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
+          <div style="color:var(--t3);">利用率 ρ</div><div id="p-rho" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
+          <div style="color:var(--t3);">服务 CV</div><div id="p-cv" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
+          <div style="color:var(--t3);">修正系数</div><div id="p-factor" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
+          <div style="color:var(--t3);">等待单价</div><div id="p-wcost" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
+          <div style="color:var(--t3);">日服务次数</div><div id="p-sessions" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
+          <div style="color:var(--t3);">基线等待 Wq</div><div id="p-wait-base" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
+          <div style="color:var(--t3);">M/G/c 排队 Wq</div><div id="p-wait" style="text-align:right;font-weight:700;color:var(--blue);">—</div>
+          <div style="color:var(--t3);">总在站时长 W</div><div id="p-sojourn" style="text-align:right;font-weight:700;color:var(--green);" title="W = Wq + 1/μ，用于等待惩罚计算">—</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT: Results -->
+    <div class="results-section" style="display:grid;gap:16px;grid-template-rows:auto auto auto auto;">
+
+      <!-- Hero row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="card" style="padding:22px;">
+          <p style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.25em;color:var(--t3);font-weight:700;margin:0;">Core Highlight / 期望日净利润</p>
+          <div id="hero-mean" style="font-size:clamp(2.4rem,6vw,4.5rem);font-weight:900;line-height:1;margin-top:8px;color:var(--t1);">—</div>
+          <p style="color:var(--t3);font-size:0.8rem;margin-top:8px;">Expected Daily Profit（元）</p>
+        </div>
+        <div class="card" style="padding:22px;display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <p style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.25em;color:var(--t3);font-weight:700;margin:0;">Tech Insight</p>
+            <p style="font-size:1rem;font-weight:800;color:var(--t1);margin:8px 0 4px;">排队 + 风险一体化</p>
+            <p style="font-size:0.78rem;color:var(--t2);margin:0;">Queue-Risk Coupling · M/G/c → Monte Carlo → Decision</p>
+          </div>
+          <svg class="line-art" style="width:100%;height:64px;margin-top:12px;" viewBox="0 0 320 64">
+            <polyline points="8,52 54,52 86,26 126,26 154,10 194,10 224,38 270,38 302,22"></polyline>
+            <line x1="8" y1="58" x2="302" y2="58"></line>
+            <circle cx="154" cy="10" r="4"></circle>
+          </svg>
+        </div>
+      </div>
+
+      <!-- KPI cards -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">
+        <div class="card" style="padding:16px;">
+          <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.18em;color:var(--t3);font-weight:700;margin:0;">VaR 5%</p>
+          <div id="kpi-var" style="font-size:1.9rem;font-weight:900;margin-top:6px;color:var(--t1);">—</div>
+          <p style="font-size:0.7rem;color:var(--t3);margin-top:4px;"><i class="fas fa-shield-alt" style="color:var(--red);margin-right:3px;"></i>Risk Floor</p>
+        </div>
+        <div class="card" style="padding:16px;">
+          <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.18em;color:var(--t3);font-weight:700;margin:0;">Mean Profit</p>
+          <div id="kpi-mean" style="font-size:1.9rem;font-weight:900;margin-top:6px;color:var(--t1);">—</div>
+          <p style="font-size:0.7rem;color:var(--t3);margin-top:4px;"><i class="fas fa-chart-line" style="color:var(--green);margin-right:3px;"></i>Expectation</p>
+        </div>
+        <div class="card" style="padding:16px;">
+          <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.18em;color:var(--t3);font-weight:700;margin:0;">Volatility</p>
+          <div id="kpi-std" style="font-size:1.9rem;font-weight:900;margin-top:6px;color:var(--t1);">—</div>
+          <p style="font-size:0.7rem;color:var(--t3);margin-top:4px;"><i class="fas fa-wave-square" style="color:var(--blue);margin-right:3px;"></i>Std Dev</p>
+        </div>
+        <div class="card" style="padding:16px;">
+          <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.18em;color:var(--t3);font-weight:700;margin:0;">Loss Prob</p>
+          <div id="kpi-loss" style="font-size:1.9rem;font-weight:900;margin-top:6px;color:var(--amber);">—</div>
+          <p style="font-size:0.7rem;color:var(--t3);margin-top:4px;"><i class="fas fa-exclamation-triangle" style="color:var(--amber);margin-right:3px;"></i>Tail Risk</p>
+        </div>
+        <div class="card" style="padding:16px;">
+          <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.18em;color:var(--t3);font-weight:700;margin:0;">Wait Penalty</p>
+          <div id="kpi-wait-penalty" style="font-size:1.9rem;font-weight:900;margin-top:6px;color:var(--t1);">—</div>
+          <p style="font-size:0.7rem;color:var(--t3);margin-top:4px;"><i class="fas fa-hourglass-half" style="color:var(--sky);margin-right:3px;"></i>RMB/day</p>
+        </div>
+      </div>
+
+      <!-- Chart + Pipeline -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+        <div class="card" style="padding:22px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <h3 style="font-size:1rem;font-weight:800;color:var(--t1);margin:0;">
+              <i class="fas fa-chart-bar" style="color:var(--blue);margin-right:7px;"></i>日净利润分布图
+              <span style="font-size:0.65rem;font-weight:600;color:var(--t3);letter-spacing:0.18em;margin-left:6px;">MONTE CARLO</span>
+            </h3>
+            <div id="chart-sub-info" style="font-size:0.76rem;color:var(--t3);"></div>
+          </div>
+          <div id="profit-chart" style="width:100%;height:360px;"></div>
+        </div>
+        <div class="card" style="padding:22px;">
+          <h3 style="font-size:1rem;font-weight:800;color:var(--t1);margin:0 0 14px;">
+            <i class="fas fa-project-diagram" style="color:var(--blue);margin-right:7px;"></i>流程速览
+            <span style="font-size:0.65rem;font-weight:600;color:var(--t3);letter-spacing:0.18em;margin-left:5px;">PIPELINE</span>
+          </h3>
+          <!-- 流程节点 -->
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+            <!-- 行1：数据 → M/M/c → M/G/c -->
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="flex:1;padding:7px 6px;border-radius:8px;border:1.5px solid #93c5fd;background:rgba(219,234,254,0.45);text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:var(--blue);">📊 数据输入</div>
+                <div style="font-size:0.6rem;color:var(--t3);margin-top:1px;">UrbanEV CSV</div>
+              </div>
+              <span style="color:#93c5fd;font-size:1rem;flex-shrink:0;">→</span>
+              <div style="flex:1;padding:7px 6px;border-radius:8px;border:1.5px solid #93c5fd;background:rgba(219,234,254,0.45);text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:var(--blue);">⚙️ M/M/c 基线</div>
+                <div style="font-size:0.6rem;color:var(--t3);margin-top:1px;">排队论计算</div>
+              </div>
+              <span style="color:#93c5fd;font-size:1rem;flex-shrink:0;">→</span>
+              <div style="flex:1;padding:7px 6px;border-radius:8px;border:1.5px solid #6ea8fe;background:rgba(191,219,254,0.55);text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#1d4ed8;">🔧 M/G/c 修正</div>
+                <div style="font-size:0.6rem;color:var(--t3);margin-top:1px;">Lee-Longton</div>
+              </div>
+            </div>
+            <!-- 箭头向下 -->
+            <div style="text-align:center;color:#93c5fd;font-size:0.9rem;line-height:1;">↓</div>
+            <!-- 行2：Monte Carlo → 决策输出 -->
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="flex:1;padding:7px 6px;border-radius:8px;border:1.5px solid #6ee7b7;background:rgba(209,250,229,0.45);text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#059669;">🎲 Monte Carlo</div>
+                <div style="font-size:0.6rem;color:var(--t3);margin-top:1px;">1000次模拟</div>
+              </div>
+              <span style="color:#93c5fd;font-size:1rem;flex-shrink:0;">→</span>
+              <div style="flex:1;padding:7px 6px;border-radius:8px;border:1.5px solid #fca5a5;background:rgba(254,226,226,0.45);text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#dc2626;">📉 风险评估</div>
+                <div style="font-size:0.6rem;color:var(--t3);margin-top:1px;">VaR · 亏损概率</div>
+              </div>
+              <span style="color:#93c5fd;font-size:1rem;flex-shrink:0;">→</span>
+              <div style="flex:1;padding:7px 6px;border-radius:8px;border:1.5px solid #a78bfa;background:rgba(237,233,254,0.55);text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#7c3aed;">✅ 决策支持</div>
+                <div style="font-size:0.6rem;color:var(--t3);margin-top:1px;">参数优化</div>
+              </div>
+            </div>
+          </div>
+          <p style="font-size:0.75rem;color:var(--t3);margin-top:10px;">实时参数调整，即时更新利润风险分布。</p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="card" style="padding:14px 22px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;">
+        <div style="font-size:0.78rem;color:var(--t2);">
+          <i class="fas fa-database" style="color:var(--blue);margin-right:6px;"></i>
+          UrbanEV Shenzhen Dataset · 275 TAZ · 1362 Stations · 2022-09 to 2023-02
+        </div>
+        <div style="font-size:0.74rem;color:var(--t4);">Tailwind + ECharts 5.6 + Font Awesome · M/G/c Lee-Longton</div>
+      </div>
+
+    </div><!-- /right -->
+  </div><!-- /main grid -->
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

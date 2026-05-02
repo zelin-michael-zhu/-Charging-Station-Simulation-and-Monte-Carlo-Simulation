@@ -1,0 +1,7 @@
+Metric,Value,Note
+Number of stations,1362.0,From inf.csv
+Average charging piles per station (c),12.872,Queue capacity proxy
+"Service rate (mu, sessions/hour/pile)",1.3815,mu = 1 / mean(service time)
+"Arrival rate (lambda, sessions/hour/station)",3.0682,Estimated via Little's Law
+Service-time CV,0.365,Used for M/G/c correction
+Mean service duration (hours),0.7239,duration/occupancy
