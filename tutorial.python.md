@@ -197,7 +197,37 @@ print(f"调参后利用率: {result_new['rho']:.1%} (原 {result['rho']:.1%})")
 
 ## 第三步：蒙特卡洛财务仿真 (`monte_carlo.py`)
 
+> 当前项目已升级为 **Peak/Off-peak 双模态仿真**：
+> - 高峰 4 小时承载 50% 客流，平峰 20 小时承载另外 50%
+> - 每次迭代分别抽样高峰客流与平峰客流
+> - 惩罚成本分开计算：高峰客流乘高峰总在站时长，平峰客流乘平峰总在站时长
+
+核心换算公式：
+
+$$
+\lambda_{peak}=3\lambda_{avg},\quad \lambda_{off}=0.6\lambda_{avg}
+$$
+
+$$
+\Pi_i = \Pi_i^{base} - N_{peak,i}W_{peak}c_{wait} - N_{off,i}W_{off}c_{wait}
+$$
+
+其中 $W_{peak}, W_{off}$ 均为“排队等待 + 固定充电服务时间”的总在站时长。
+
 ### 核心仿真循环
+
+```python
+def run_bimodal_day(peak_lambda, offpeak_lambda, mu, c, cv, rng):
+    peak_sessions = rng.poisson(peak_lambda * 4)
+    off_sessions = rng.poisson(offpeak_lambda * 20)
+
+    q_peak = QueuingSimulator(peak_sessions / 4, mu, c, cv).compute()
+    q_off = QueuingSimulator(off_sessions / 20, mu, c, cv).compute()
+
+    peak_total_minutes = q_peak.w_mgc_minutes
+    off_total_minutes = q_off.w_mgc_minutes
+    return peak_sessions, off_sessions, peak_total_minutes, off_total_minutes
+```
 
 ```python
 import numpy as np

@@ -14,7 +14,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.patches import Polygon
 
 
 ROOT = Path(__file__).resolve().parent
@@ -30,40 +29,6 @@ from queuing_model import QueuingSimulator  # noqa: E402
 
 
 plt.style.use("seaborn-v0_8-whitegrid")
-
-
-def _lonlat_to_web_mercator(lon: np.ndarray, lat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Convert lon/lat (EPSG:4326) to Web Mercator meters (EPSG:3857)."""
-    x = lon * 20037508.34 / 180.0
-    lat_clip = np.clip(lat, -85.05112878, 85.05112878)
-    y = np.log(np.tan((90.0 + lat_clip) * np.pi / 360.0)) * 20037508.34 / np.pi
-    return x, y
-
-
-def _convex_hull(points: np.ndarray) -> np.ndarray:
-    """Monotonic chain convex hull. Returns hull points in order."""
-    pts = np.unique(points, axis=0)
-    if len(pts) <= 2:
-        return pts
-
-    pts = pts[np.lexsort((pts[:, 1], pts[:, 0]))]
-
-    def cross(o: np.ndarray, a: np.ndarray, b: np.ndarray) -> float:
-        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
-
-    lower = []
-    for p in pts:
-        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
-            lower.pop()
-        lower.append(p)
-
-    upper = []
-    for p in pts[::-1]:
-        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
-            upper.pop()
-        upper.append(p)
-
-    return np.array(lower[:-1] + upper[:-1])
 
 
 def ensure_out_dir() -> None:
@@ -151,156 +116,6 @@ def fig_charge_count_distribution() -> None:
     plt.legend()
     plt.tight_layout()
     plt.savefig(OUT_DIR / "fig_01_charge_count_distribution.png", dpi=180)
-    plt.close()
-
-
-def fig_shenzhen_station_distribution_map() -> None:
-    """Shenzhen station KDE-density map (UrbanEV reference style).
-
-    - White background + Shenzhen administrative boundary outline
-    - Gaussian KDE heatmap weighted by charge_count (white → cyan → teal)
-    - Black dots for each charging station
-    - Scale bar, north arrow, piles/km² colourbar
-    """
-    import json as _json
-    import urllib.request
-    from matplotlib.colors import LinearSegmentedColormap
-    from scipy.stats import gaussian_kde  # type: ignore
-
-    # ── Data ──────────────────────────────────────────────────────────────
-    df = pd.read_csv(DATA_DIR / "inf.csv")
-    df = df.dropna(subset=["longitude", "latitude"])
-    df = df[df["longitude"].between(113.72, 114.70) & df["latitude"].between(22.38, 22.87)]
-
-    lon = df["longitude"].to_numpy(dtype=float)
-    lat = df["latitude"].to_numpy(dtype=float)
-    charge = df["charge_count"].fillna(1).to_numpy(dtype=float)
-    total_piles = float(charge.sum())
-    n_station = len(df)
-
-    # ── KDE on a regular lon/lat grid ─────────────────────────────────────
-    lon_min, lon_max = 113.72, 114.70
-    lat_min, lat_max = 22.38, 22.87
-    grid_res = 400
-
-    lon_g = np.linspace(lon_min, lon_max, grid_res)
-    lat_g = np.linspace(lat_min, lat_max, grid_res)
-    LON, LAT = np.meshgrid(lon_g, lat_g)
-
-    kernel = gaussian_kde(np.vstack([lon, lat]), weights=charge, bw_method=0.030)
-    Z = kernel(np.vstack([LON.ravel(), LAT.ravel()])).reshape(grid_res, grid_res)
-
-    # Convert probability density (per degree²) → piles / km²
-    lat_c = float(np.mean(lat))
-    km2_per_deg2 = 111.0 * 111.0 * np.cos(np.radians(lat_c))
-    Z_km2 = Z * total_piles / km2_per_deg2
-
-    # ── Colourmap: white → light-cyan → cyan → teal (reference style) ────
-    cmap_kde = LinearSegmentedColormap.from_list(
-        "kde_sz",
-        ["#ffffff", "#e0f7fa", "#80deea", "#26c6da", "#00838f", "#004d40"],
-        N=256,
-    )
-
-    # ── Figure ────────────────────────────────────────────────────────────
-    fig, ax = plt.subplots(figsize=(12, 7))
-    ax.set_facecolor("white")
-    fig.patch.set_facecolor("white")
-
-    # KDE heatmap
-    im = ax.imshow(
-        Z_km2,
-        extent=[lon_min, lon_max, lat_min, lat_max],
-        origin="lower",
-        cmap=cmap_kde,
-        alpha=0.82,
-        aspect="auto",
-        vmin=0,
-        zorder=2,
-    )
-
-    # ── Shenzhen administrative boundary (Aliyun DataV open API) ─────────
-    boundary_drawn = False
-    try:
-        url = "https://geo.datav.aliyun.com/areas_v3/bound/440300_full.json"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            geo = _json.loads(resp.read())
-        for feature in geo.get("features", []):
-            geom = feature.get("geometry", {})
-            gtype = geom.get("type", "")
-            rings: list = []
-            if gtype == "Polygon":
-                rings = geom["coordinates"]
-            elif gtype == "MultiPolygon":
-                for poly in geom["coordinates"]:
-                    rings.extend(poly)
-            for ring in rings:
-                r = np.array(ring)
-                ax.plot(r[:, 0], r[:, 1], color="#333333", linewidth=0.55, zorder=5)
-        boundary_drawn = True
-    except Exception:
-        boundary_drawn = False
-
-    if not boundary_drawn:
-        # Convex hull as fallback outline
-        hull = _convex_hull(np.column_stack([lon, lat]))
-        closed = np.vstack([hull, hull[0]])
-        ax.plot(closed[:, 0], closed[:, 1], color="#333333", linewidth=1.2, zorder=5)
-
-    # ── Station dots ──────────────────────────────────────────────────────
-    ax.scatter(lon, lat, s=5, c="black", linewidths=0, alpha=0.75, zorder=6)
-
-    # ── Scale bar (bottom-centre, 0 – 7.5 – 15 km) ───────────────────────
-    km_per_deg_lon = 111.0 * np.cos(np.radians(lat_c))
-    bar_deg = 7.5 / km_per_deg_lon          # degrees lon for 7.5 km
-    bx0 = lon_min + (lon_max - lon_min) * 0.35
-    by0 = lat_min + (lat_max - lat_min) * 0.045
-    bh = (lat_max - lat_min) * 0.010
-    ax.add_patch(plt.Rectangle((bx0, by0), bar_deg, bh, fc="black", zorder=8))
-    ax.add_patch(plt.Rectangle(
-        (bx0 + bar_deg, by0), bar_deg, bh,
-        fc="white", ec="black", lw=0.5, zorder=8,
-    ))
-    for label, xpos in [("0", bx0), ("7.5", bx0 + bar_deg), ("15 km", bx0 + 2 * bar_deg)]:
-        ax.text(xpos, by0 - bh * 0.8, label, fontsize=7.5, ha="center", va="top", zorder=9)
-
-    # ── North arrow (top-right) ───────────────────────────────────────────
-    nx = lon_max - (lon_max - lon_min) * 0.055
-    ny0 = lat_max - (lat_max - lat_min) * 0.16
-    nlen = (lat_max - lat_min) * 0.08
-    ax.annotate(
-        "",
-        xy=(nx, ny0 + nlen),
-        xytext=(nx, ny0),
-        arrowprops=dict(arrowstyle="-|>", color="black", lw=1.5, mutation_scale=14),
-        zorder=8,
-    )
-    ax.text(
-        nx, ny0 + nlen + (lat_max - lat_min) * 0.012,
-        "N", fontsize=11, ha="center", va="bottom", fontweight="bold", zorder=9,
-    )
-
-    # ── Colourbar ─────────────────────────────────────────────────────────
-    cbar = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.01, shrink=0.60, aspect=30)
-    cbar.set_label("Kernel Density of Charging Piles\n(piles/km²)", fontsize=8.5)
-    cbar.ax.tick_params(labelsize=8)
-
-    # ── Axes clean-up ─────────────────────────────────────────────────────
-    ax.set_xlim(lon_min, lon_max)
-    ax.set_ylim(lat_min, lat_max)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-
-    ax.set_title(
-        f"Spatial Distribution of {n_station:,} Charging Stations in Shenzhen",
-        fontsize=12, pad=8,
-    )
-
-    plt.tight_layout()
-    plt.savefig(OUT_DIR / "fig_07_shenzhen_station_distribution_map.png", dpi=220, bbox_inches="tight")
     plt.close()
 
 
@@ -620,7 +435,6 @@ def main() -> None:
     print(stats.to_string(index=False))
 
     fig_charge_count_distribution()
-    fig_shenzhen_station_distribution_map()
     fig_service_duration_distribution()
     fig_monte_carlo_histogram()
     fig_queue_sensitivity_curve()

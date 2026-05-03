@@ -48,12 +48,16 @@ class SimulationResponse(BaseModel):
     std_profit: float            # 利润标准差（元）
     prob_loss: float             # 亏损概率（0~1）
     mean_wait_penalty: float     # 等待惩罚的期望成本（元/天）
+    peak_utilization: float      # 高峰期平均利用率（1000次循环均值）
+    peak_wait_minutes: float     # 高峰期平均排队时间（分钟，Wq）
 
     # 直方图原始数据（1000 个点）
     histogram_data: list[float]
 
     # 基准参数回显
     lambda_rate: float
+    peak_lambda_rate: float
+    offpeak_lambda_rate: float
     mu: float
     service_time_cv: float
     wait_cost_per_minute: float

@@ -72,6 +72,33 @@
     }
     .loading-overlay { opacity:.5;pointer-events:none;transition:.2s; }
     .qrow { display:grid;grid-template-columns:1fr 1fr;gap:5px 0;font-size:0.82rem; }
+    .kpi-grid { display:grid;grid-template-columns:repeat(6,1fr);gap:12px; }
+    @media (max-width: 1280px) {
+      .kpi-grid { grid-template-columns:repeat(3,1fr); }
+    }
+    @media (max-width: 760px) {
+      .kpi-grid { grid-template-columns:repeat(2,1fr); }
+    }
+    .congestion-card {
+      background: linear-gradient(145deg, rgba(255,237,213,0.85) 0%, rgba(254,226,226,0.88) 100%);
+      border: 1px solid rgba(248,113,113,0.35);
+      box-shadow: 0 8px 24px rgba(239,68,68,0.18);
+    }
+    .congestion-label {
+      color: #9a3412;
+      letter-spacing: 0.14em;
+    }
+    .danger-value {
+      color: #ef4444 !important;
+      text-shadow: 0 0 8px rgba(239,68,68,0.45);
+    }
+    .danger-blink {
+      animation: dangerPulse 0.9s infinite;
+    }
+    @keyframes dangerPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
   </style>
 </head>
 <body>
@@ -184,7 +211,7 @@
       </div>
 
       <!-- KPI cards -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">
+      <div class="kpi-grid">
         <div class="card" style="padding:16px;">
           <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.18em;color:var(--t3);font-weight:700;margin:0;">VaR 5%</p>
           <div id="kpi-var" style="font-size:1.9rem;font-weight:900;margin-top:6px;color:var(--t1);">—</div>
@@ -209,6 +236,15 @@
           <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.18em;color:var(--t3);font-weight:700;margin:0;">Wait Penalty</p>
           <div id="kpi-wait-penalty" style="font-size:1.9rem;font-weight:900;margin-top:6px;color:var(--t1);">—</div>
           <p style="font-size:0.7rem;color:var(--t3);margin-top:4px;"><i class="fas fa-hourglass-half" style="color:var(--sky);margin-right:3px;"></i>RMB/day</p>
+        </div>
+        <div id="kpi-congestion-card" class="card congestion-card" style="padding:16px;">
+          <p class="congestion-label" style="font-size:0.65rem;text-transform:uppercase;font-weight:800;margin:0;">高峰期拥堵预警</p>
+          <div style="display:flex;align-items:flex-end;gap:8px;margin-top:4px;">
+            <div id="kpi-peak-wait" style="font-size:1.9rem;font-weight:900;color:#c2410c;line-height:1;">—</div>
+            <div style="font-size:0.72rem;color:#9a3412;padding-bottom:4px;">分钟</div>
+          </div>
+          <p id="kpi-peak-util" style="font-size:0.76rem;color:#9a3412;margin-top:6px;">利用率 —</p>
+          <p id="kpi-congestion-state" style="font-size:0.7rem;color:#b45309;margin-top:4px;"><i class="fas fa-radiation" style="margin-right:3px;"></i>Peak queue monitor</p>
         </div>
       </div>
 

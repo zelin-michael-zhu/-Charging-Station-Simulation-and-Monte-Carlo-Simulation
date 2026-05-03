@@ -19,7 +19,9 @@ def load_baseline_data() -> dict:
     返回基准参数字典，字段说明：
       c                  : int   — 平均充电桩数（来自 inf.csv charge_count 均值）
       mu                 : float — 单桩服务率（次/小时），= 1 / 平均充电时长(h)
-      lambda_rate        : float — 单站到达率（次/小时），由 Little 定律推导
+    lambda_rate        : float — 单站到达率（次/小时），由 Little 定律推导
+    peak_lambda_rate   : float — 晚高峰到达率（次/小时），潮汐规则推导
+    offpeak_lambda_rate: float — 平峰到达率（次/小时），潮汐规则推导
       mean_session_duration: float — 平均充电时长（小时）
             service_time_cv    : float — 单次充电时长变异系数，用于 M/G/c 修正
       mean_kwh           : float — 单次充电平均电量（kWh）
@@ -81,6 +83,13 @@ def load_baseline_data() -> dict:
     mean_L_station = mean_L_taz / stations_per_taz                   # 每站并发数
     lambda_rate    = mean_L_station / mean_session_duration           # 次/h/站
 
+    # ── 4.1 潮汐规则：50%客流集中在4小时高峰，其余50%分摊到20小时平峰 ─────
+    daily_sessions_avg = lambda_rate * 24.0
+    peak_hours = 4.0
+    offpeak_hours = 20.0
+    peak_lambda_rate = (daily_sessions_avg * 0.5) / peak_hours
+    offpeak_lambda_rate = (daily_sessions_avg * 0.5) / offpeak_hours
+
     # ── 5. 单次充电电量（kWh/次）────────────────────────────────────────────
     vol_mask = valid_mask & np.isfinite(vol_vals) & (vol_vals > 0)
     # kWh/h/并发会话 × 充电时长 = kWh/次
@@ -107,6 +116,10 @@ def load_baseline_data() -> dict:
         "c":                    int(round(mean_charge_count)),
         "mu":                   mu,
         "lambda_rate":          lambda_rate,
+        "peak_lambda_rate":     peak_lambda_rate,
+        "offpeak_lambda_rate":  offpeak_lambda_rate,
+        "peak_hours":           peak_hours,
+        "offpeak_hours":        offpeak_hours,
         "mean_session_duration": mean_session_duration,
         "service_time_cv":      service_time_cv,
         "mean_kwh":             mean_kwh,
@@ -115,9 +128,9 @@ def load_baseline_data() -> dict:
         "mean_s_price":         mean_s_price,
         "std_e_price":          std_e_price,
         "std_s_price":          std_s_price,
-        "wait_cost_per_minute": 0.020,  # 元/车·分钟，基于在站总时长W(=Wq+1/μ≈43min)的隐性成本
-                                        # 标定：深圳时间价值≈30元/h，充电等待折损≈4%
-                                        # → 0.020×43×73.6次≈63元/天（显著但不超过利润）
+        "wait_cost_per_minute": 0.010,  # 元/车·分钟，基于在站总时长W(=Wq+1/μ≈43min)的隐性成本
+                # 标定：深圳时间价值≈30元/h，充电等待折损≈2%
+                # → 0.010×43×73.6次≈32元/天（温和惩罚，降低过高风险放大）
         # ★ 以下两项为补全参数，依据市场均值
         "wholesale_price":      0.55,   # 元/kWh，深圳工商业购电均价
         "daily_fixed_cost":     300.0,  # 元/天，单站运营固定成本（人工+折旧+租金）

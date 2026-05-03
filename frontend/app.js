@@ -24,6 +24,10 @@ const kpiMean  = document.getElementById("kpi-mean");
 const kpiStd   = document.getElementById("kpi-std");
 const kpiLoss  = document.getElementById("kpi-loss");
 const kpiWaitPenalty = document.getElementById("kpi-wait-penalty");
+const kpiPeakWait = document.getElementById("kpi-peak-wait");
+const kpiPeakUtil = document.getElementById("kpi-peak-util");
+const kpiCongestionState = document.getElementById("kpi-congestion-state");
+const kpiCongestionCard = document.getElementById("kpi-congestion-card");
 
 const pC       = document.getElementById("p-c");
 const pLambda  = document.getElementById("p-lambda");
@@ -211,6 +215,8 @@ function updateUI(data) {
   kpiStd.textContent  = fmt(data.std_profit);
   kpiLoss.textContent = (data.prob_loss * 100).toFixed(1) + "%";
   kpiWaitPenalty.textContent = fmt2(data.mean_wait_penalty ?? 0);
+  kpiPeakWait.textContent = fmt2(data.peak_wait_minutes ?? 0);
+  kpiPeakUtil.textContent = `利用率 ${(data.peak_utilization * 100).toFixed(1)}%`;
   if (heroMean) {
     heroMean.textContent = fmt(data.mean_profit);
   }
@@ -221,6 +227,21 @@ function updateUI(data) {
   kpiStd.style.color = "#334155";
   kpiLoss.style.color = "#f59e0b";
   kpiWaitPenalty.style.color = "#334155";
+
+  const thresholdMinutes = 5.0;
+  const occIncrease = parseFloat(occSlider.value) > 0;
+  const peakWait = data.peak_wait_minutes ?? 0;
+  const isCritical = occIncrease && peakWait > thresholdMinutes;
+
+  kpiPeakWait.classList.toggle("danger-value", isCritical);
+  kpiPeakWait.classList.toggle("danger-blink", isCritical);
+  kpiCongestionCard.style.borderColor = isCritical
+    ? "rgba(239,68,68,0.8)"
+    : "rgba(248,113,113,0.35)";
+  kpiCongestionState.textContent = isCritical
+    ? `告警：高峰排队超过 ${thresholdMinutes.toFixed(0)} 分钟，系统逼近拥堵崩溃`
+    : "状态：高峰通行可控";
+  kpiCongestionState.style.color = isCritical ? "#b91c1c" : "#b45309";
 
   // 排队参数
   pC.textContent        = data.c + " 桩";
