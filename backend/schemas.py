@@ -25,9 +25,9 @@ class SimulationRequest(BaseModel):
         description="客流量变动比例，如 0.2 表示增加 20%"
     )] = 0.0
 
-    wait_cost_change: Annotated[float, Field(
+    dwell_cost_change: Annotated[float, Field(
         ge=-0.9, le=2.0,
-        description="等待惩罚成本变动比例，如 0.5 表示增加 50%"
+        description="在站时间机会成本变动比例，如 0.5 表示增加 50%"
     )] = 0.0
 
 
@@ -47,7 +47,7 @@ class SimulationResponse(BaseModel):
     mean_profit: float           # 期望日净利润（元）
     std_profit: float            # 利润标准差（元）
     prob_loss: float             # 亏损概率（0~1）
-    mean_wait_penalty: float     # 等待惩罚的期望成本（元/天）
+    mean_dwell_penalty: float     # 在站时间惩罚的期望成本（元/天）
     peak_utilization: float      # 高峰期平均利用率（1000次循环均值）
     peak_wait_minutes: float     # 高峰期平均排队时间（分钟，Wq）
 
@@ -60,5 +60,5 @@ class SimulationResponse(BaseModel):
     offpeak_lambda_rate: float
     mu: float
     service_time_cv: float
-    wait_cost_per_minute: float
+    dwell_cost_per_minute: float
     c: int

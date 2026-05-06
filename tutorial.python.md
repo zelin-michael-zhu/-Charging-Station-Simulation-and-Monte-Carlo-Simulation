@@ -144,13 +144,18 @@ def compute_mmc(lam: float, mu: float, c: int):
     
     返回
     ----
-    dict 包含 rho, erlang_c, wq_minutes, daily_sessions
+    dict 包含 rho, erlang_c, queue_waiting_time_minutes, dwell_time_minutes, daily_sessions
     """
     rho = lam / (c * mu)   # 系统利用率（traffic intensity）
     
     if rho >= 1.0:
         # 系统不稳定，队列无限增长（实际中需扩容）
-        return {"rho": rho, "erlang_c": 1.0, "wq_minutes": 9999}
+        return {
+            "rho": rho,
+            "erlang_c": 1.0,
+            "queue_waiting_time_minutes": 9999,
+            "dwell_time_minutes": 9999,
+        }
     
     a = lam / mu   # offered traffic（Erlang）
     
@@ -172,7 +177,8 @@ def compute_mmc(lam: float, mu: float, c: int):
     return {
         "rho":            rho,
         "erlang_c":       erlang_c,
-        "wq_minutes":     Wq * 60,
+        "queue_waiting_time_minutes": Wq * 60,
+        "dwell_time_minutes": Wq * 60 + (1.0 / mu) * 60,
         "daily_sessions": daily_sessions,
     }
 
@@ -180,7 +186,8 @@ def compute_mmc(lam: float, mu: float, c: int):
 result = compute_mmc(lam=1.5, mu=0.53, c=14)
 print(f"利用率 ρ = {result['rho']:.1%}")
 print(f"等待概率 C = {result['erlang_c']:.3f}")
-print(f"平均等待 = {result['wq_minutes']:.1f} 分钟")
+print(f"平均排队等待 Wq = {result['queue_waiting_time_minutes']:.1f} 分钟")
+print(f"总在站时长 W = {result['dwell_time_minutes']:.1f} 分钟")
 print(f"日服务 = {result['daily_sessions']:.0f} 次")
 ```
 
@@ -333,12 +340,19 @@ def run_simulation(payload: SimulationRequest):
     # 2. 根据用户调参修改 λ
     adj_lambda = baseline["lambda_rate"] * (1 + payload.occupancy_change)
     
-    # 3. M/M/c 排队计算
+    # 3. M/G/c 排队计算：同时保留 Wq 与总在站时长 W
     q = QueuingSimulator(adj_lambda, baseline["mu"], baseline["c"]).compute()
     
     # 4. 蒙特卡洛仿真
     mc = MonteCarloSimulator(
-        daily_sessions=q.daily_sessions,
+        peak_lambda_rate=baseline["peak_lambda_rate"],
+        offpeak_lambda_rate=baseline["offpeak_lambda_rate"],
+        peak_hours=baseline["peak_hours"],
+        offpeak_hours=baseline["offpeak_hours"],
+        mu=baseline["mu"],
+        c=baseline["c"],
+        service_time_cv=baseline["service_time_cv"],
+        dwell_cost_per_minute=baseline["dwell_cost_per_minute"],
         service_fee_change=payload.service_fee_change,
         electricity_cost_change=payload.electricity_cost_change,
         **{k: baseline[k] for k in ["mean_kwh","std_kwh","mean_e_price",
@@ -349,7 +363,8 @@ def run_simulation(payload: SimulationRequest):
     # 5. 打包返回 JSON
     return SimulationResponse(
         utilization=q.rho,
-        mean_wait_minutes=q.wq_minutes,
+        mean_wait_minutes=q.queue_waiting_time_minutes,
+        mean_sojourn_minutes=q.dwell_time_minutes,
         daily_sessions=q.daily_sessions,
         var_5pct=mc.var_5pct,
         mean_profit=mc.mean_profit,

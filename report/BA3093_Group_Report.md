@@ -47,14 +47,14 @@ This project addresses two interconnected research questions:
 
 **RQ1 (Financial Risk):** Under simultaneous uncertainty in demand, service durations, electricity prices, and service fees, what is the distribution of daily net profit for a representative Shenzhen public charging station, and what are its tail-risk characteristics (VaR, CVaR, loss probability)?
 
-**RQ2 (Operational Risk):** How does the queuing system respond to demand variation and capacity decisions, and how do congestion-induced wait penalties translate into financially material profit erosion?
+**RQ2 (Operational Risk):** How does the queuing system respond to demand variation and capacity decisions, and how does the opportunity cost of vehicle dwell time translate into financially material profit erosion?
 
 ### 1.3 Why This Approach is Appropriate
 
 A combined Monte Carlo simulation (Option A) and queuing analysis (Option B) approach is justified on three grounds:
 
 - **Multiple stochastic inputs**: The profit function is a nonlinear composite of at least five random variables. Analytical closed-form solutions do not exist for joint distributional outputs; simulation is the standard industry method (Glasserman, 2004).
-- **Congestion mechanics**: The charging station is a multi-server queuing system. Without queuing analysis, waiting costs and their sensitivity to demand shocks cannot be quantified (Gross et al., 2018).
+- **Congestion mechanics**: The charging station is a multi-server queuing system. Without queuing analysis, queueing performance, total dwell time, and their sensitivity to demand shocks cannot be quantified (Gross et al., 2018).
 - **Complementarity**: Monte Carlo captures financial output distributions; queuing analysis provides the operational performance metrics that feed into those distributions. Together, they form a closed analytical loop from operational reality to financial risk.
 
 This dual-stream design directly satisfies both Option A and Option B requirements of BA3093 while addressing a genuine managerial problem.
@@ -109,7 +109,7 @@ All parameters are derived directly from the cleaned dataset or supported by pub
 | $\bar{p}_s$, $\sigma_{p_s}$ | Mean and std. of service fee | Mean and std. of valid observations in `s_price.csv` | data-driven | `s_price.csv` |
 | $p_w$ | Wholesale electricity cost (RMB/kWh) | External benchmark: 2023 Shenzhen industrial-commercial tariff average | **0.55** | Shenzhen MDRC (2023) |
 | $C_f$ | Daily fixed operating cost (RMB/day) | Industry benchmark: labour + depreciation + rent average for Shenzhen | **300** | Industry survey benchmark |
-| $c_{wait}$ | Wait-penalty unit cost (RMB/vehicle/min) | Calibrated from Shenzhen value-of-time (≈30 RMB/h) × 2% wait-discomfort discount | **0.010** | Hopp & Spearman (2011); local time-value calibration |
+| $c_{dwell}$ | Dwell-time opportunity cost (RMB/vehicle/min) | Calibrated from Shenzhen time value and station resource occupation cost; represents the opportunity cost of each vehicle-minute in station | **0.010** | Hopp & Spearman (2011); local time-value calibration |
 
 **Descriptive statistics table** (auto-generated from data): `report_assets/descriptive_statistics.csv`
 
@@ -124,6 +124,8 @@ All parameters are derived directly from the cleaned dataset or supported by pub
 **A4 — Normal perturbations for prices.** Hourly electricity price and service fee fluctuations are modelled as Normally distributed perturbations around their empirical means, with standard deviations set at 30% of the raw empirical std. to reflect that day-to-day operating price changes are less extreme than the full cross-TAZ cross-hour spread in the raw data. This is a standard approach for short-run price risk modelling (Glasserman, 2004).
 
 **A5 — Daily independence of simulation runs.** Monte Carlo runs represent independent operating days. This abstracts away autocorrelation in demand; a conservative assumption that may slightly overstate variance relative to real operation.
+
+**A6 — Total dwell-time opportunity cost.** The time penalty in this study is not limited to queue waiting time. It represents the opportunity cost generated while a vehicle remains within the charging station. Both queueing and active charging occupy parking space, charger capacity, and potential service opportunities. Therefore, the financial model uses the total time in system, $W = W_q + 1/\mu$, rather than queue waiting time alone.
 
 ---
 
@@ -155,7 +157,7 @@ $$
 \lambda_{off} = \frac{0.5 \times 24 \times \lambda_{avg}}{20} = 0.6\lambda_{avg}
 $$
 
-In each simulation run, queueing performance is computed separately under $\lambda_{peak}$ and $\lambda_{off}$, and penalties are deducted segment-wise. This explicitly activates the nonlinear congestion penalty of Erlang-C and produces VaR estimates that are materially more sensitive to peak-hour collapse risk.
+In each simulation run, queueing performance and total dwell time are computed separately under $\lambda_{peak}$ and $\lambda_{off}$, and dwell-time opportunity costs are deducted segment-wise. The 50%-50% split is a scenario assumption used to prevent all-day average demand from hiding peak pressure; future work can calibrate the split from hour-level occupancy or volume data.
 
 #### 3.2.1 Model Structure
 
@@ -220,8 +222,8 @@ $$L_q = \lambda \times W_q^{M/G/c}$$
 |---|---|---|
 | Utilisation $\rho$ | $\lambda / (c\mu)$ | Fraction of charger capacity in use; capacity planning signal |
 | Wait probability $P(\text{wait})$ | Erlang-C | User experience indicator; drives satisfaction and revisit intent |
-| Mean wait time $W_q^{M/G/c}$ | Above | Directly translates to wait-penalty cost in profit model |
-| Mean sojourn $W^{M/G/c}$ | $W_q + 1/\mu$ | Total customer dwell time; relevant for parking and safety |
+| Mean queue waiting time $W_q^{M/G/c}$ | Above | Measures pure congestion delay and customer queueing experience |
+| Total dwell time $W^{M/G/c}$ | $W_q + 1/\mu$ | Measures total station resource occupation and enters the profit model's dwell-time penalty |
 | Queue length $L_q$ | $\lambda W_q$ | Space planning for waiting areas |
 
 ### 3.3 Option A — Monte Carlo Risk Model
@@ -245,11 +247,13 @@ At each simulation run $i = 1, 2, \ldots, 1000$, the following random variables 
 
 $$\Pi_i^{base} = (N_{peak,i}+N_{off,i}) Q_i (p_{e,i} + p_{s,i}) - (N_{peak,i}+N_{off,i}) Q_i p_{w,i} - C_f$$
 
-**Step 2 — Segment-wise wait-penalty deduction** (linking queuing model output to financial model):
+**Step 2 — Segment-wise dwell-time opportunity cost deduction** (linking queuing model output to financial model):
 
-$$\Pi_i = \Pi_i^{base} - N_{peak,i}\cdot W_{peak,minutes}\cdot c_{wait} - N_{off,i}\cdot W_{off,minutes}\cdot c_{wait}$$
+$$\Pi_i = \Pi_i^{base} - N_{peak,i}\cdot W_{dwell,peak,minutes}\cdot c_{dwell} - N_{off,i}\cdot W_{dwell,off,minutes}\cdot c_{dwell}$$
 
-where $W_{peak,minutes}$ and $W_{off,minutes}$ are peak/off-peak total sojourn times (queueing + charging service), and $c_{wait} = 0.010$ RMB/vehicle/min is the opportunity cost of customer time.
+where $W_{dwell,peak}$ and $W_{dwell,off}$ are peak/off-peak total dwell times, including both queueing and active charging, with $W_{dwell} = W_q + 1/\mu$. $c_{dwell} = 0.010$ RMB/vehicle/min is the opportunity cost generated by each vehicle-minute in station.
+
+This time-cost definition is broader than a pure queue waiting cost. It measures station resource occupation from the operator's perspective rather than only customer dissatisfaction while queueing.
 
 This linkage is the key integration point: the queuing model is not a standalone exercise but directly informs the profit distribution estimated by Monte Carlo.
 
@@ -285,6 +289,14 @@ From the $n = 1000$ profit draws $\{\Pi_1, \ldots, \Pi_{1000}\}$:
 *Note: Data from UrbanEV `inf.csv`, 1,362 stations. Red dashed line = mean (c = 13).*
 
 The distribution of chargers per station is right-skewed and heterogeneous. While the mean is 13 piles (used as the representative server count $c$ in the queuing model), a substantial proportion of stations have fewer than 10 piles. This capacity imbalance implies that results presented here represent an average-sized station; smaller stations face higher utilisation and worse wait performance at the same city-level arrival rate.
+
+To avoid interpreting the representative station as every station, the capacity discussion keeps three scenarios in view:
+
+| Scenario | $c$ | Meaning |
+|---|---:|---|
+| Small station | 6 | Smaller site with higher congestion risk |
+| Base station | 13 | Average-sized site used as the main model baseline |
+| Large station | 25 | Larger site with more capacity headroom |
 
 **Figure 2 — Empirical Service Duration Distribution vs. Exponential Benchmark**
 
@@ -333,7 +345,7 @@ Under baseline parameters ($\lambda = 3.0682$, $\mu = 1.3815$, $c = 13$, $CV = 0
 
 **Managerial interpretation**: The profit distribution is approximately bell-shaped but with a left-side tail indicating that loss days are possible even when expected profit is positive. This asymmetry arises from two sources: (1) Poisson demand variability creates occasional very low-volume days; (2) electricity price shocks can compress margins in either direction, but the downside (high wholesale cost + low revenue price) is more financially damaging than the symmetric upside. VaR and CVaR are the operationally useful risk measures: an operator should maintain a daily cash-flow buffer equal to at least |CVaR$_{5\%}$| to avoid liquidity stress on adverse days.
 
-### 4.4 Integration: Waiting Penalty as a Profit Driver
+### 4.4 Integration: Dwell-Time Opportunity Cost as a Profit Driver
 
 **Figure 4 — Queuing Performance Sensitivity Curve**
 
@@ -341,7 +353,7 @@ Under baseline parameters ($\lambda = 3.0682$, $\mu = 1.3815$, $c = 13$, $CV = 0
 
 *Note: Mean waiting time and utilisation as a function of arrival rate multiplier. Dashed vertical line indicates current baseline $\lambda$. Generated by `visualization.py`.*
 
-The key insight from the integrated model is that **congestion is not merely a service quality issue — it is a direct financial liability**. The wait penalty $N_i \times W^{M/G/c} \times c_{wait}$ reduces profit in every simulation run. More critically, because waiting time grows nonlinearly near the congestion threshold ($\rho \rightarrow 1$), demand shocks in peak periods disproportionately erode profit compared to equivalent demand increases during uncongested periods. This creates an operational asymmetry: adding capacity is most valuable precisely when utilisation is already high.
+The key insight from the integrated model is that **long vehicle dwell time is not merely a service-efficiency issue; it is a direct financial opportunity cost**. The queuing model provides two layers of input to the Monte Carlo model: $W_q$ measures pure congestion risk, while $W = W_q + 1/\mu$ measures total station resource occupation. Because station profitability depends on the number of vehicles served per unit time, longer dwell time creates higher opportunity cost. More critically, queue waiting time grows nonlinearly near the congestion threshold ($\rho \rightarrow 1$), further amplifying the total dwell-time penalty.
 
 ---
 
@@ -363,7 +375,7 @@ The key insight from the integrated model is that **congestion is not merely a s
 
 3. **Electricity purchase cost ($p_w$)** creates significant asymmetric downside risk. A +20% wholesale cost shock directly compresses gross margin per kWh, and the operator has limited short-run ability to pass this through to customers on fixed tariff contracts.
 
-4. **Wait-cost multiplier ($c_{wait}$)** shows materially higher sensitivity impact under high-demand scenarios than at baseline, validating that queue management investment has disproportionate financial return during demand surges.
+4. **Dwell-cost multiplier ($c_{dwell}$)** shows materially higher sensitivity impact under high-demand scenarios than at baseline, validating that queue management investment has disproportionate financial return during demand surges.
 
 5. **Fixed operating cost ($C_f$)** and energy-per-session ($\bar{Q}$) show moderate, symmetric sensitivity — important for absolute profit level but not asymmetric risk drivers.
 
@@ -371,19 +383,19 @@ The key insight from the integrated model is that **congestion is not merely a s
 
 | Category | Parameters | Management Response |
 |---|---|---|
-| Controllable | Service fee $p_s$, charger count $c$, wait-cost mitigation | Pricing strategy, capacity investment, queue management |
+| Controllable | Service fee $p_s$, charger count $c$, dwell-time cost mitigation | Pricing strategy, capacity investment, queue management |
 | Partially controllable | Arrival rate $\lambda$ (via marketing, pricing incentives) | Demand-shaping through off-peak promotions |
 | Largely uncontrollable | Wholesale electricity price $p_w$, customer-side $p_e$ | Hedging, long-term procurement contracts |
 
-### 5.2 Queuing Sensitivity: Wait-Penalty Response Curve
+### 5.2 Queuing Sensitivity: Dwell-Time Penalty Response Curve
 
-**Figure 6 — Wait Penalty Response Under Increasing Demand**
+**Figure 6 — Dwell-Time Penalty Response Under Increasing Demand**
 
-![Wait Penalty Response](../report_assets/fig_06_wait_penalty_response.png)
+![Dwell-Time Penalty Response](../report_assets/fig_06_dwell_penalty_response.png)
 
-*Note: Expected total wait penalty (RMB/day) as a function of demand multiplier and wait-cost unit. Solid lines: different $c_{wait}$ assumptions. Generated by `visualization.py`.*
+*Note: Expected total dwell-time penalty (RMB/day) as a function of demand multiplier and dwell-cost unit. The penalty is based on total time in system, $W = W_q + 1/\mu$, including both queueing and active charging. Solid lines: different $c_{dwell}$ assumptions. Generated by `visualization.py`.*
 
-Under low to moderate utilisation ($\rho < 0.5$), the wait penalty is negligible and insensitive to demand changes. However, as demand grows and $\rho$ approaches 0.6–0.8, the wait penalty rises sharply due to the nonlinear Erlang-C function. This creates a **congestion risk cliff**: moderate demand growth appears manageable until a tipping point, after which each additional unit of demand generates disproportionate waiting costs.
+Under low to moderate utilisation ($\rho < 0.5$), the dwell-time penalty is mainly driven by stable charging service time and changes smoothly with demand. However, as demand grows and $\rho$ approaches 0.6–0.8, queue waiting time rises sharply due to the nonlinear Erlang-C function and further amplifies the total dwell-time penalty. This creates a **congestion risk cliff**: moderate demand growth appears manageable until a tipping point, after which each additional unit of demand generates disproportionate station occupation cost.
 
 This nonlinearity has a direct implication for capacity planning: the financially optimal time to add chargers is *before* the cliff, not after congestion has materialised. Ex-post capacity expansion is both more expensive (installation disruption, higher contract prices) and less effective (some customers will have already churned).
 
@@ -395,7 +407,7 @@ This nonlinearity has a direct implication for capacity planning: the financiall
 
 **On RQ1 (Financial Risk):** The Monte Carlo simulation demonstrates that daily net profit at a representative Shenzhen charging station is positive in expectation but exhibits meaningful downside risk. The left tail of the distribution — reflected in VaR$_{5\%}$ and CVaR$_{5\%}$ — indicates that loss days occur with non-trivial probability, driven primarily by low-demand days and wholesale electricity price spikes. The joint distribution of multiple uncertain inputs produces a profit distribution that cannot be characterised by simple deterministic budgeting.
 
-**On RQ2 (Operational Risk):** Under average city-level demand, the queuing system has abundant capacity ($\rho \approx 0.17$) and minimal waiting times. However, the nonlinear relationship between utilisation and waiting time means that peak-hour demand or system-level growth scenarios can rapidly generate materially higher wait penalties. The M/G/c correction (vs. naive M/M/c) reduces estimated waiting times by 43%, demonstrating that model choice has financially material consequences.
+**On RQ2 (Operational Risk):** Under average city-level demand, the queuing system has abundant capacity ($\rho \approx 0.17$) and short queue waiting times, but total vehicle dwell time still creates a stable station resource occupation cost. As demand grows, the nonlinear rise in queue waiting time further amplifies the total dwell-time penalty. The M/G/c correction (vs. naive M/M/c) reduces estimated waiting times by 43%, demonstrating that model choice has financially material consequences.
 
 ### 6.2 Actionable Recommendations
 
@@ -413,7 +425,7 @@ This nonlinearity has a direct implication for capacity planning: the financiall
 
 *Implementation*: Establish a data-driven trigger rule: when rolling 30-day average peak-hour $\rho > 0.5$ at a given station, initiate the procurement and installation process for additional chargers (typical lead time: 4–8 weeks). This ensures capacity arrives before the financial tipping point, not after.
 
-*Expected effect*: Prevents the disproportionate wait-penalty escalation shown in Figure 6; maintains $P(\text{wait})$ below 5% and average wait below 3 minutes, protecting user satisfaction and repeat-visit revenue.
+*Expected effect*: Prevents the disproportionate dwell-time penalty escalation shown in Figure 6; maintains $P(\text{wait})$ below 5% and average wait below 3 minutes, protecting user satisfaction and repeat-visit revenue.
 
 **Recommendation 3 — Electricity cost hedging for margin floor protection**
 
@@ -428,7 +440,9 @@ This nonlinearity has a direct implication for capacity planning: the financiall
 **Limitations:**
 
 - **Hourly aggregation**: The UrbanEV dataset provides hourly-level data, not individual-event timestamps. True inter-arrival times and exact service completions are not observable, so Poisson arrival fitting is validated at the aggregate level rather than the event level. Discrete-event simulation with event-level logs would improve accuracy.
+- **TAZ-to-representative-station conversion**: UrbanEV time-series variables are observed at the TAZ-hour aggregation level. This study converts TAZ-level occupancy and service-duration indicators into representative single-station parameters, so results should be interpreted as average-station risk estimates rather than precise forecasts for a specific station.
 - **Station-average parameters**: All parameters are estimated as cross-station averages. Individual stations vary significantly (as shown by charger count heterogeneity in Figure 1). Location-specific models would produce more precise risk estimates for individual investment decisions.
+- **Peak-share scenario assumption**: The 50% demand in 4 peak hours and 50% demand in 20 off-peak hours split is used to avoid hiding peak pressure behind all-day averages. It is not directly estimated from individual session timestamps. Future work should calibrate this split from hour-level occupancy or volume data.
 - **No user balking model**: The current M/M/c model assumes all arrivals join the queue regardless of waiting time. In reality, users may balk when expected wait exceeds a threshold, reducing actual wait times but also reducing revenue. Incorporating a finite-patience or balking model (e.g., M/M/c/K or M/M/c with balking) would improve realism.
 - **Independence of simulation days**: Autocorrelation in daily demand (e.g., weekday patterns, seasonal trends) is not modelled. This may overstate day-to-day profit variance.
 

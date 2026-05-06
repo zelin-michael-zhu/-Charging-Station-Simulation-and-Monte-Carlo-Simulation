@@ -30,7 +30,7 @@ def load_baseline_data() -> dict:
       mean_s_price       : float — 平均服务费（元/kWh，来自 s_price.csv）
       std_e_price        : float — 电价标准差
       std_s_price        : float — 服务费标准差
-    wait_cost_per_minute: float — 每分钟等待隐性成本（元/车·分钟）
+    dwell_cost_per_minute: float — 每分钟在站时间机会成本（元/车·分钟），基于总在站时长 W = W_q + 1/μ
       wholesale_price    : float — ★补全参数★ 电站购电批发价（元/kWh）
                                    依据：2023 深圳工商业电价市场均值 ≈ 0.55 元/kWh
       daily_fixed_cost   : float — ★补全参数★ 单站日固定运营成本（元）
@@ -128,9 +128,9 @@ def load_baseline_data() -> dict:
         "mean_s_price":         mean_s_price,
         "std_e_price":          std_e_price,
         "std_s_price":          std_s_price,
-        "wait_cost_per_minute": 0.010,  # 元/车·分钟，基于在站总时长W(=Wq+1/μ≈43min)的隐性成本
-                # 标定：深圳时间价值≈30元/h，充电等待折损≈2%
-                # → 0.010×43×73.6次≈32元/天（温和惩罚，降低过高风险放大）
+        "dwell_cost_per_minute": 0.010,  # 元/车·分钟，基于总在站时长 W = W_q + 1/μ ≈ 43 min 的机会成本
+                # 标定：深圳时间价值≈30元/h，站点资源占用折损≈2%
+                # → 0.010 × 43 × 73.6 次 ≈ 32 元/天（温和机会成本，避免过高的风险放大）
         # ★ 以下两项为补全参数，依据市场均值
         "wholesale_price":      0.55,   # 元/kWh，深圳工商业购电均价
         "daily_fixed_cost":     300.0,  # 元/天，单站运营固定成本（人工+折旧+租金）

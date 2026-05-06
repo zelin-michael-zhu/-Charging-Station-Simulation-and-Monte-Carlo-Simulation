@@ -23,7 +23,7 @@ const kpiVar   = document.getElementById("kpi-var");
 const kpiMean  = document.getElementById("kpi-mean");
 const kpiStd   = document.getElementById("kpi-std");
 const kpiLoss  = document.getElementById("kpi-loss");
-const kpiWaitPenalty = document.getElementById("kpi-wait-penalty");
+const kpiDwellPenalty = document.getElementById("kpi-dwell-penalty");
 const kpiPeakWait = document.getElementById("kpi-peak-wait");
 const kpiPeakUtil = document.getElementById("kpi-peak-util");
 const kpiCongestionState = document.getElementById("kpi-congestion-state");
@@ -186,7 +186,7 @@ async function runSimulation() {
         service_fee_change:        sfee,
         electricity_cost_change:   ecost,
         occupancy_change:          occ,
-        wait_cost_change:          wcost,
+        dwell_cost_change:         wcost,
       }),
     });
 
@@ -214,7 +214,7 @@ function updateUI(data) {
   kpiMean.textContent = fmt(data.mean_profit);
   kpiStd.textContent  = fmt(data.std_profit);
   kpiLoss.textContent = (data.prob_loss * 100).toFixed(1) + "%";
-  kpiWaitPenalty.textContent = fmt2(data.mean_wait_penalty ?? 0);
+  kpiDwellPenalty.textContent = fmt2(data.mean_dwell_penalty ?? 0);
   kpiPeakWait.textContent = fmt2(data.peak_wait_minutes ?? 0);
   kpiPeakUtil.textContent = `利用率 ${(data.peak_utilization * 100).toFixed(1)}%`;
   if (heroMean) {
@@ -226,7 +226,7 @@ function updateUI(data) {
   kpiMean.style.color = data.mean_profit >= 0 ? "#10b981" : "#ef4444";
   kpiStd.style.color = "#334155";
   kpiLoss.style.color = "#f59e0b";
-  kpiWaitPenalty.style.color = "#334155";
+  kpiDwellPenalty.style.color = "#334155";
 
   const thresholdMinutes = 5.0;
   const occIncrease = parseFloat(occSlider.value) > 0;
@@ -250,7 +250,7 @@ function updateUI(data) {
   pRho.textContent      = (data.utilization * 100).toFixed(1) + "%";
   pCv.textContent       = (data.service_time_cv ?? 1).toFixed(3);
   pFactor.textContent   = (data.mgc_correction_factor ?? 1).toFixed(4);
-  pWcost.textContent    = (data.wait_cost_per_minute ?? 0).toFixed(3) + " 元/车·分";
+  pWcost.textContent    = (data.dwell_cost_per_minute ?? 0).toFixed(3) + " 元/车·分";
   pSessions.textContent = data.daily_sessions.toFixed(0) + " 次";
   pWaitBase.textContent = (data.mean_wait_minutes_baseline ?? data.mean_wait_minutes).toFixed(2) + " 分钟";
   pWait.textContent     = data.mean_wait_minutes.toFixed(2) + " 分钟";
@@ -260,7 +260,7 @@ function updateUI(data) {
 
   // 副标题
   chartSub.textContent =
-    `VaR 5% = ${fmt(data.var_5pct)} 元  |  期望 = ${fmt(data.mean_profit)} 元  |  等待惩罚 = ${fmt2(data.mean_wait_penalty ?? 0)} 元`;
+    `VaR 5% = ${fmt(data.var_5pct)} 元  |  期望 = ${fmt(data.mean_profit)} 元  |  在站时间成本 = ${fmt2(data.mean_dwell_penalty ?? 0)} 元`;
 
   // 直方图
   const { labels, counts, binWidth, minP } = buildHistogram(data.histogram_data, 32);

@@ -149,12 +149,12 @@ def fig_service_duration_distribution() -> None:
     plt.close()
 
 
-def run_single_scenario(occupancy_change: float, wait_cost_change: float = 0.0) -> dict:
+def run_single_scenario(occupancy_change: float, dwell_cost_change: float = 0.0) -> dict:
     baseline = load_baseline_data()
 
     peak_lambda = baseline["peak_lambda_rate"] * (1.0 + occupancy_change)
     offpeak_lambda = baseline["offpeak_lambda_rate"] * (1.0 + occupancy_change)
-    wait_cost = baseline["wait_cost_per_minute"] * (1.0 + wait_cost_change)
+    dwell_cost = baseline["dwell_cost_per_minute"] * (1.0 + dwell_cost_change)
 
     q_peak = QueuingSimulator(
         lam=peak_lambda,
@@ -171,8 +171,8 @@ def run_single_scenario(occupancy_change: float, wait_cost_change: float = 0.0) 
 
     total_hours = baseline["peak_hours"] + baseline["offpeak_hours"]
     avg_wait = (
-        q_peak.wq_minutes * baseline["peak_hours"]
-        + q_offpeak.wq_minutes * baseline["offpeak_hours"]
+        q_peak.queue_waiting_time_minutes * baseline["peak_hours"]
+        + q_offpeak.queue_waiting_time_minutes * baseline["offpeak_hours"]
     ) / total_hours
     avg_wait_base = (
         q_peak.wq_mmc_minutes * baseline["peak_hours"]
@@ -199,7 +199,7 @@ def run_single_scenario(occupancy_change: float, wait_cost_change: float = 0.0) 
         std_s_price=baseline["std_s_price"],
         wholesale_price=baseline["wholesale_price"],
         daily_fixed_cost=baseline["daily_fixed_cost"],
-        wait_cost_per_minute=wait_cost,
+        dwell_cost_per_minute=dwell_cost,
         service_fee_change=0.0,
         electricity_cost_change=0.0,
         n_iter=1000,
@@ -214,7 +214,7 @@ def run_single_scenario(occupancy_change: float, wait_cost_change: float = 0.0) 
         "mean_profit": mc.mean_profit,
         "var_5pct": mc.var_5pct,
         "prob_loss": mc.prob_loss,
-        "mean_wait_penalty": mc.mean_wait_penalty,
+        "mean_dwell_penalty": mc.mean_dwell_penalty,
         "peak_utilization": mc.mean_peak_utilization,
         "peak_wait_minutes": mc.mean_peak_wait_minutes,
         "profits": np.array(mc.profits),
@@ -222,7 +222,7 @@ def run_single_scenario(occupancy_change: float, wait_cost_change: float = 0.0) 
 
 
 def fig_monte_carlo_histogram() -> None:
-    res = run_single_scenario(occupancy_change=0.0, wait_cost_change=0.0)
+    res = run_single_scenario(occupancy_change=0.0, dwell_cost_change=0.0)
     profits = res["profits"]
     var5 = res["var_5pct"]
     cvar5 = profits[profits <= var5].mean()
@@ -251,7 +251,7 @@ def fig_queue_sensitivity_curve() -> None:
         q = QueuingSimulator(
             lam=lam, mu=b["mu"], c=b["c"], service_time_cv=b["service_time_cv"]
         ).compute()
-        waits.append(min(float(q.wq_minutes), 120.0))  # cap display at 120 min
+        waits.append(min(float(q.queue_waiting_time_minutes), 120.0))  # cap display at 120 min
         util_arr.append(float(q.rho))
 
     waits_arr = np.array(waits)
@@ -297,13 +297,13 @@ def fig_tornado_profit_sensitivity() -> None:
         occ: float = 0.0,
         svc: float = 0.0,
         elec: float = 0.0,
-        wait: float = 0.0,
+        dwell: float = 0.0,
         fixc: float = 0.0,
         kwh: float = 0.0,
     ) -> float:
         peak_lambda = b["peak_lambda_rate"] * (1.0 + occ)
         offpeak_lambda = b["offpeak_lambda_rate"] * (1.0 + occ)
-        wc = b["wait_cost_per_minute"] * (1.0 + wait)
+        dwell_cost = b["dwell_cost_per_minute"] * (1.0 + dwell)
         mc = MonteCarloSimulator(
             peak_lambda_rate=peak_lambda,
             offpeak_lambda_rate=offpeak_lambda,
@@ -320,7 +320,7 @@ def fig_tornado_profit_sensitivity() -> None:
             std_s_price=b["std_s_price"],
             wholesale_price=b["wholesale_price"],
             daily_fixed_cost=b["daily_fixed_cost"] * (1.0 + fixc),
-            wait_cost_per_minute=wc,
+            dwell_cost_per_minute=dwell_cost,
             service_fee_change=svc,
             electricity_cost_change=elec,
             n_iter=1000,
@@ -337,7 +337,7 @@ def fig_tornado_profit_sensitivity() -> None:
         ("Wholesale cost (p_w)",    dict(elec=+0.2), dict(elec=-0.2)),
         ("Fixed cost (C_f)",        dict(fixc=+0.2), dict(fixc=-0.2)),
         ("kWh/session (Q\u0304)",   dict(kwh=+0.2),  dict(kwh=-0.2)),
-        ("Wait cost (c_wait)",      dict(wait=+0.2), dict(wait=-0.2)),
+        ("Dwell cost (c_dwell)",    dict(dwell=+0.2), dict(dwell=-0.2)),
     ]
 
     results = []
@@ -375,21 +375,21 @@ def fig_tornado_profit_sensitivity() -> None:
     plt.close()
 
 
-def fig_wait_penalty_response() -> None:
+def fig_dwell_penalty_response() -> None:
     from data_processor import load_baseline_data as _load  # noqa: E402
 
     b = _load()
 
     # X-axis: demand multiplier relative to baseline λ
     demand_multipliers = np.linspace(0.5, 5.5, 40)
-    wait_cost_scenarios = [
-        (0.005, "#2563eb", "c_wait = 0.005 ¥/min"),
-        (0.010, "#b45309", "c_wait = 0.010 ¥/min (baseline)"),
-        (0.020, "#dc2626", "c_wait = 0.020 ¥/min"),
+    dwell_cost_scenarios = [
+        (0.005, "#2563eb", "c_dwell = 0.005 ¥/veh-min"),
+        (0.010, "#b45309", "c_dwell = 0.010 ¥/veh-min (baseline)"),
+        (0.020, "#dc2626", "c_dwell = 0.020 ¥/veh-min"),
     ]
 
     plt.figure(figsize=(9, 5))
-    for wc, color, lbl in wait_cost_scenarios:
+    for dwell_cost, color, lbl in dwell_cost_scenarios:
         penalties = []
         for m in demand_multipliers:
             peak_lambda = b["peak_lambda_rate"] * m
@@ -410,20 +410,20 @@ def fig_wait_penalty_response() -> None:
                 std_s_price=b["std_s_price"],
                 wholesale_price=b["wholesale_price"],
                 daily_fixed_cost=b["daily_fixed_cost"],
-                wait_cost_per_minute=wc,
+                dwell_cost_per_minute=dwell_cost,
                 n_iter=1000,
                 seed=42,
             ).run()
-            penalties.append(mc.mean_wait_penalty)
+            penalties.append(mc.mean_dwell_penalty)
         plt.plot(demand_multipliers, penalties, color=color, linewidth=2.2, label=lbl)
 
     plt.axvline(1.0, color="#6b7280", linestyle="--", linewidth=1.8, label="Baseline λ")
-    plt.title("Wait-Penalty Cost vs. Demand Multiplier")
+    plt.title("Dwell-Time Penalty Cost vs. Demand Multiplier")
     plt.xlabel("Demand multiplier (× baseline λ)")
-    plt.ylabel("Expected wait-penalty cost (RMB/day)")
+    plt.ylabel("Expected dwell-time penalty cost (RMB/day)")
     plt.legend()
     plt.tight_layout()
-    plt.savefig(OUT_DIR / "fig_06_wait_penalty_response.png", dpi=180)
+    plt.savefig(OUT_DIR / "fig_06_dwell_penalty_response.png", dpi=180)
     plt.close()
 
 
@@ -439,7 +439,7 @@ def main() -> None:
     fig_monte_carlo_histogram()
     fig_queue_sensitivity_curve()
     fig_tornado_profit_sensitivity()
-    fig_wait_penalty_response()
+    fig_dwell_penalty_response()
 
     print(f"\nAll figures generated in: {OUT_DIR}")
 

@@ -158,8 +158,8 @@
         </div>
         <div>
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.82rem;">
-            <span style="color:var(--t2);">等待惩罚 / Wait Penalty</span>
-            <span id="wcost-val" style="font-weight:700;color:var(--blue);">0%</span>
+             <span style="color:var(--t2);">在站时间成本 / Dwell-Time Cost</span>
+             <span id="wcost-val" style="font-weight:700;color:var(--blue);">0%</span>
           </div>
           <input type="range" id="wcost" class="slider" min="-50" max="200" step="1" value="0" />
         </div>
@@ -177,11 +177,11 @@
           <div style="color:var(--t3);">利用率 ρ</div><div id="p-rho" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
           <div style="color:var(--t3);">服务 CV</div><div id="p-cv" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
           <div style="color:var(--t3);">修正系数</div><div id="p-factor" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
-          <div style="color:var(--t3);">等待单价</div><div id="p-wcost" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
+           <div style="color:var(--t3);">在站成本率</div><div id="p-wcost" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
           <div style="color:var(--t3);">日服务次数</div><div id="p-sessions" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
           <div style="color:var(--t3);">基线等待 Wq</div><div id="p-wait-base" style="text-align:right;font-weight:700;color:var(--t1);">—</div>
           <div style="color:var(--t3);">M/G/c 排队 Wq</div><div id="p-wait" style="text-align:right;font-weight:700;color:var(--blue);">—</div>
-          <div style="color:var(--t3);">总在站时长 W</div><div id="p-sojourn" style="text-align:right;font-weight:700;color:var(--green);" title="W = Wq + 1/μ，用于等待惩罚计算">—</div>
+           <div style="color:var(--t3);">总在站时长 W</div><div id="p-sojourn" style="text-align:right;font-weight:700;color:var(--green);" title="W = Wq + 1/μ，用于在站时间惩罚计算">—</div>
         </div>
       </div>
     </aside>
@@ -233,9 +233,9 @@
           <p style="font-size:0.7rem;color:var(--t3);margin-top:4px;"><i class="fas fa-exclamation-triangle" style="color:var(--amber);margin-right:3px;"></i>Tail Risk</p>
         </div>
         <div class="card" style="padding:16px;">
-          <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.18em;color:var(--t3);font-weight:700;margin:0;">Wait Penalty</p>
-          <div id="kpi-wait-penalty" style="font-size:1.9rem;font-weight:900;margin-top:6px;color:var(--t1);">—</div>
-          <p style="font-size:0.7rem;color:var(--t3);margin-top:4px;"><i class="fas fa-hourglass-half" style="color:var(--sky);margin-right:3px;"></i>RMB/day</p>
+           <p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.18em;color:var(--t3);font-weight:700;margin:0;">Dwell-Time Pen.</p>
+           <div id="kpi-dwell-penalty" style="font-size:1.9rem;font-weight:900;margin-top:6px;color:var(--t1);">—</div>
+           <p style="font-size:0.7rem;color:var(--t3);margin-top:4px;"><i class="fas fa-clock" style="color:var(--sky);margin-right:3px;"></i>元/天</p>
         </div>
         <div id="kpi-congestion-card" class="card congestion-card" style="padding:16px;">
           <p class="congestion-label" style="font-size:0.65rem;text-transform:uppercase;font-weight:800;margin:0;">高峰期拥堵预警</p>

@@ -55,7 +55,7 @@ def run_simulation(payload: SimulationRequest) -> SimulationResponse:
     peak_hours = baseline["peak_hours"]
     offpeak_hours = baseline["offpeak_hours"]
     adj_lambda = (adj_peak_lambda * peak_hours + adj_offpeak_lambda * offpeak_hours) / 24.0
-    adj_wait_cost = baseline["wait_cost_per_minute"] * (1.0 + payload.wait_cost_change)
+    adj_dwell_cost = baseline["dwell_cost_per_minute"] * (1.0 + payload.dwell_cost_change)
 
     # ── 2. 高峰/平峰分别计算 M/G/c（保留 M/M/c 基线）───────────────────────
     q_peak = QueuingSimulator(
@@ -74,12 +74,15 @@ def run_simulation(payload: SimulationRequest) -> SimulationResponse:
     # 用时段加权的平均值保留现有字段兼容
     total_hours = peak_hours + offpeak_hours
     avg_utilization = (q_peak.rho * peak_hours + q_offpeak.rho * offpeak_hours) / total_hours
-    avg_wait_minutes = (q_peak.wq_minutes * peak_hours + q_offpeak.wq_minutes * offpeak_hours) / total_hours
+    avg_wait_minutes = (
+        q_peak.queue_waiting_time_minutes * peak_hours
+        + q_offpeak.queue_waiting_time_minutes * offpeak_hours
+    ) / total_hours
     avg_wait_baseline = (
         q_peak.wq_mmc_minutes * peak_hours + q_offpeak.wq_mmc_minutes * offpeak_hours
     ) / total_hours
     avg_sojourn_minutes = (
-        q_peak.w_mgc_minutes * peak_hours + q_offpeak.w_mgc_minutes * offpeak_hours
+        q_peak.dwell_time_minutes * peak_hours + q_offpeak.dwell_time_minutes * offpeak_hours
     ) / total_hours
     daily_sessions = adj_peak_lambda * peak_hours + adj_offpeak_lambda * offpeak_hours
 
@@ -100,7 +103,7 @@ def run_simulation(payload: SimulationRequest) -> SimulationResponse:
         std_s_price=baseline["std_s_price"],
         wholesale_price=baseline["wholesale_price"],
         daily_fixed_cost=baseline["daily_fixed_cost"],
-        wait_cost_per_minute=adj_wait_cost,
+        dwell_cost_per_minute=adj_dwell_cost,
         service_fee_change=payload.service_fee_change,
         electricity_cost_change=payload.electricity_cost_change,
         n_iter=1000,
@@ -119,7 +122,7 @@ def run_simulation(payload: SimulationRequest) -> SimulationResponse:
         mean_profit=round(mc_result.mean_profit, 2),
         std_profit=round(mc_result.std_profit, 2),
         prob_loss=round(mc_result.prob_loss, 4),
-        mean_wait_penalty=round(mc_result.mean_wait_penalty, 2),
+        mean_dwell_penalty=round(mc_result.mean_dwell_penalty, 2),
         peak_utilization=round(mc_result.mean_peak_utilization, 4),
         peak_wait_minutes=round(mc_result.mean_peak_wait_minutes, 2),
         histogram_data=[round(p, 2) for p in mc_result.profits],
@@ -128,6 +131,6 @@ def run_simulation(payload: SimulationRequest) -> SimulationResponse:
         offpeak_lambda_rate=round(adj_offpeak_lambda, 4),
         mu=round(baseline["mu"], 4),
         service_time_cv=round(baseline["service_time_cv"], 4),
-        wait_cost_per_minute=round(adj_wait_cost, 3),
+        dwell_cost_per_minute=round(adj_dwell_cost, 3),
         c=baseline["c"],
     )

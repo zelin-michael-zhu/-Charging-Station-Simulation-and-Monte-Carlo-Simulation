@@ -1,6 +1,10 @@
 """
 queuing_model.py — M/M/c 排队论计算器
-职责：根据 λ、μ、c 计算系统利用率、平均等待时间及有效服务车辆数。
+职责：根据 λ、μ、c 计算系统利用率、排队等待时间、总在站时间及有效服务车辆数。
+
+输出两类时间指标：
+- queue_waiting_time_minutes (W_q): 纯排队等待时间，用于服务质量解读。
+- dwell_time_minutes (W = W_q + 1/μ): 总在站时间，用于财务模型中的在站时间机会成本扣减。
 """
 
 import math
@@ -11,9 +15,9 @@ from dataclasses import dataclass
 class QueueResult:
     rho: float           # 系统利用率 ρ = λ/(c·μ)
     erlang_c: float      # 等待概率（Erlang C 值）
-    wq_minutes: float    # 平均排队等待时间（分钟，M/G/c 修正后，不含服务时间）
+    queue_waiting_time_minutes: float    # 平均排队等待时间 W_q（分钟，M/G/c 修正后，不含服务时间）
     wq_mmc_minutes: float  # 平均排队等待时间（分钟，M/M/c 基线）
-    w_mgc_minutes: float   # 平均总在站时长（分钟，= Wq_mgc + 1/μ·60，含充电服务时间）
+    dwell_time_minutes: float   # 总在站时长 W（分钟，= W_q + 1/μ·60，含排队等待 + 充电服务时间）
     mgc_correction_factor: float  # Lee-Longton 修正系数
     lq: float            # 平均排队长度
     effective_lambda: float  # 实际有效到达率（次/小时）
@@ -105,9 +109,9 @@ class QueuingSimulator:
         return QueueResult(
             rho=rho,
             erlang_c=erlang_c_val,
-            wq_minutes=min(wq_mgc_minutes, 999.0),
+            queue_waiting_time_minutes=min(wq_mgc_minutes, 999.0),
             wq_mmc_minutes=min(wq_mmc_minutes, 999.0),
-            w_mgc_minutes=min(w_mgc_minutes, 999.0),
+            dwell_time_minutes=min(w_mgc_minutes, 999.0),
             mgc_correction_factor=correction_factor,
             lq=min(lq, 9999.0) if lq != float("inf") else 9999.0,
             effective_lambda=effective_lambda,

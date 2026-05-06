@@ -16,9 +16,9 @@ class MonteCarloResult:
     mean_profit: float     # 均值（元/天）
     std_profit: float      # 标准差
     prob_loss: float       # 亏损概率（0~1）
-    mean_wait_penalty: float  # 等待惩罚均值（元/天）
+    mean_dwell_penalty: float  # 在站时间惩罚均值（元/天）
     mean_peak_utilization: float  # 高峰期平均利用率（1000次循环均值）
-    mean_peak_wait_minutes: float  # 高峰期平均排队时间（分钟，Wq）
+    mean_peak_wait_minutes: float  # 高峰期平均排队时间（分钟，W_q）
 
 
 class MonteCarloSimulator:
@@ -26,11 +26,11 @@ class MonteCarloSimulator:
     基于 M/G/c 排队结果（总在站时长 W = Wq + 1/μ）与数据基准参数的蒙特卡洛财务仿真器。
 
     财务模型（单站·每日）：
-        total_kwh    = sessions × kwh_per_session
-        revenue      = total_kwh × (e_price + s_price_adj)     # 含客户侧电费+服务费
-        cost         = total_kwh × wholesale_price + fixed_cost
-        wait_penalty = sessions × W_mgc × wait_cost_per_minute  # M/G/c 总在站时长惩罚
-        profit       = revenue - cost - wait_penalty
+        total_kwh      = sessions × kwh_per_session
+        revenue        = total_kwh × (e_price + s_price_adj)     # 含客户侧电费+服务费
+        cost           = total_kwh × wholesale_price + fixed_cost
+        dwell_penalty  = sessions × W_dwell × dwell_cost_per_minute  # 总在站时间机会成本（基于 W = W_q + 1/μ）
+        profit         = revenue - cost - dwell_penalty
     """
 
     def __init__(
@@ -50,7 +50,7 @@ class MonteCarloSimulator:
         std_s_price: float,
         wholesale_price: float,
         daily_fixed_cost: float,
-        wait_cost_per_minute: float,
+        dwell_cost_per_minute: float,
         service_fee_change: float = 0.0,   # 服务费调整比例，如 -0.1 = -10%
         electricity_cost_change: float = 0.0,  # 购电成本调整比例
         n_iter: int = 1000,
@@ -71,7 +71,7 @@ class MonteCarloSimulator:
         self.std_s_price          = std_s_price
         self.wholesale_price      = wholesale_price * (1.0 + electricity_cost_change)
         self.daily_fixed_cost     = daily_fixed_cost
-        self.wait_cost_per_minute = max(wait_cost_per_minute, 0.0)
+        self.dwell_cost_per_minute = max(dwell_cost_per_minute, 0.0)
         self.n_iter               = n_iter
         self.rng                  = np.random.default_rng(seed)
 
@@ -92,8 +92,8 @@ class MonteCarloSimulator:
         # 每次循环分别代入高峰/平峰到达率计算排队时长，再分摊惩罚成本
         peak_wait_minutes = np.zeros(n, dtype=float)
         peak_utilization = np.zeros(n, dtype=float)
-        peak_sojourn_minutes = np.zeros(n, dtype=float)
-        offpeak_sojourn_minutes = np.zeros(n, dtype=float)
+        peak_dwell_minutes = np.zeros(n, dtype=float)
+        offpeak_dwell_minutes = np.zeros(n, dtype=float)
 
         for i in range(n):
             lam_peak_i = (peak_sessions[i] / self.peak_hours) if self.peak_hours > 0 else 0.0
@@ -112,10 +112,10 @@ class MonteCarloSimulator:
                 service_time_cv=self.service_time_cv,
             ).compute()
 
-            peak_wait_minutes[i] = q_peak.wq_minutes
+            peak_wait_minutes[i] = q_peak.queue_waiting_time_minutes
             peak_utilization[i] = q_peak.rho
-            peak_sojourn_minutes[i] = q_peak.w_mgc_minutes
-            offpeak_sojourn_minutes[i] = q_off.w_mgc_minutes
+            peak_dwell_minutes[i] = q_peak.dwell_time_minutes
+            offpeak_dwell_minutes[i] = q_off.dwell_time_minutes
 
         # 单次充电电量（kWh）：正态分布，截断至 [1, 50]
         kwh = self.rng.normal(self.mean_kwh, self.std_kwh, size=n)
@@ -138,16 +138,16 @@ class MonteCarloSimulator:
         total_kwh = sessions * kwh
         revenue   = total_kwh * (e_price + s_price)
         cost      = total_kwh * wholesale + self.daily_fixed_cost
-        peak_penalty = peak_sessions * peak_sojourn_minutes * self.wait_cost_per_minute
-        offpeak_penalty = offpeak_sessions * offpeak_sojourn_minutes * self.wait_cost_per_minute
-        wait_penalty = peak_penalty + offpeak_penalty
-        profits   = revenue - cost - wait_penalty
+        peak_penalty = peak_sessions * peak_dwell_minutes * self.dwell_cost_per_minute
+        offpeak_penalty = offpeak_sessions * offpeak_dwell_minutes * self.dwell_cost_per_minute
+        dwell_penalty = peak_penalty + offpeak_penalty
+        profits   = revenue - cost - dwell_penalty
 
         var_5pct    = float(np.percentile(profits, 5))
         mean_profit = float(np.mean(profits))
         std_profit  = float(np.std(profits))
         prob_loss   = float(np.mean(profits < 0))
-        mean_wait_penalty = float(np.mean(wait_penalty))
+        mean_dwell_penalty = float(np.mean(dwell_penalty))
         mean_peak_utilization = float(np.mean(peak_utilization))
         mean_peak_wait_minutes = float(np.mean(peak_wait_minutes))
 
@@ -157,7 +157,7 @@ class MonteCarloSimulator:
             mean_profit=mean_profit,
             std_profit=std_profit,
             prob_loss=prob_loss,
-            mean_wait_penalty=mean_wait_penalty,
+            mean_dwell_penalty=mean_dwell_penalty,
             mean_peak_utilization=mean_peak_utilization,
             mean_peak_wait_minutes=mean_peak_wait_minutes,
         )
