@@ -1,26 +1,58 @@
-# BA3093 仿真与风险分析 — 小组项目报告（中文版，仅供内部参考）
+<style>
+body {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 12pt;
+  line-height: 2;
+  margin: 2.5cm;
+}
+@page {
+  size: A4;
+  margin: 2.5cm;
+}
+figcaption, .caption {
+  font-size: 11pt;
+  line-height: 1.5;
+}
+table {
+  margin: 0.5cm 0;
+  border-collapse: collapse;
+}
+th, td {
+  border: 1px solid black;
+  padding: 0.3cm;
+  text-align: left;
+}
+th {
+  border-bottom: 2px solid black;
+  border-top: 2px solid black;
+}
+tr:last-child td {
+  border-bottom: 2px solid black;
+}
+</style>
+
+# 多重不确定性下电动汽车公共充电站盈利风险分析：蒙特卡洛与排队仿真方法
+
+Simulation and Risk Analysis (1001)
 
 ---
 
-## 封面页
+**小组编号** Group GG
 
-**项目标题：** 多重不确定性下电动汽车公共充电站盈利风险分析：蒙特卡洛与排队仿真方法
+**课程节次** [待填写]
 
-**小组编号：** 第 [待填写] 组
-
-**课程节次：** [待填写]
-
-**课程名称：** BA3093 仿真与风险分析
-
-**提交日期：** 2025 年 5 月 24 日
-
-**小组成员：**
-
-| 姓名 | 学号 |
+| **学生姓名** | **学号** |
 |---|---|
-| [姓名] | [学号] |
-| [姓名] | [学号] |
-| [姓名] | [学号] |
+| Jiang Haoran | 2330036047 |
+| Zhu Zelin | 2330036213 |
+| Lu Xinyu | 2330036099 |
+| Gong Yihang | 2330036027 |
+| Guo Jiajun | 2330036028 |
+| Sun Haoran | 2330032039 |
+
+May 2026
+
+**致谢：** 所有统计分析、仿真代码与解释均由小组独立完成。
 
 
 ---
