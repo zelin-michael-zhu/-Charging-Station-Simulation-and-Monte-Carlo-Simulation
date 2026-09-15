@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EV Charging Risk Console</title>
+  <title>EV Charging Supply Chain Risk Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -108,11 +108,11 @@
   <header class="card" style="padding:24px 32px;margin-bottom:16px;">
     <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;">
       <div>
-        <p style="font-size:0.7rem;letter-spacing:0.3em;font-weight:700;color:var(--t3);text-transform:uppercase;margin:0;">Simulation · Risk Analysis · Queuing Theory</p>
+        <p style="font-size:0.7rem;letter-spacing:0.3em;font-weight:700;color:var(--t3);text-transform:uppercase;margin:0;">Supply Chain · Simulation · Risk Analytics</p>
         <h1 style="font-size:clamp(1.8rem,4.5vw,3.5rem);font-weight:900;line-height:1.1;margin:8px 0 0;">
-          <span style="color:var(--t1);">充电站净利润风险 </span><span class="title-grad">BENTO DASHBOARD</span>
+          <span style="color:var(--t1);">充电供应链运营风险 </span><span class="title-grad">CONTROL TOWER</span>
         </h1>
-        <p style="color:var(--t3);margin:8px 0 0;font-size:0.86rem;">M/M/c Baseline &rarr; M/G/c Correction &rarr; Monte Carlo 1000 Runs</p>
+        <p style="color:var(--t3);margin:8px 0 0;font-size:0.86rem;">Power Procurement &rarr; Station Capacity &rarr; Fleet Fulfillment · M/G/c + Monte Carlo</p>
       </div>
       <div style="display:flex;align-items:center;gap:10px;padding:8px 18px;border-radius:999px;border:1px solid #e2e8f0;background:rgba(255,255,255,0.6);">
         <span id="status-dot" class="dot dot-idle"></span>
@@ -199,8 +199,8 @@
         <div class="card" style="padding:22px;display:flex;flex-direction:column;justify-content:space-between;">
           <div>
             <p style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.25em;color:var(--t3);font-weight:700;margin:0;">Tech Insight</p>
-            <p style="font-size:1rem;font-weight:800;color:var(--t1);margin:8px 0 4px;">排队 + 风险一体化</p>
-            <p style="font-size:0.78rem;color:var(--t2);margin:0;">Queue-Risk Coupling · M/G/c → Monte Carlo → Decision</p>
+            <p style="font-size:1rem;font-weight:800;color:var(--t1);margin:8px 0 4px;">能源—站点—履约一体化</p>
+            <p style="font-size:0.78rem;color:var(--t2);margin:0;">Supply-Risk Coupling · Procurement → Capacity → Fulfillment</p>
           </div>
           <svg class="line-art" style="width:100%;height:64px;margin-top:12px;" viewBox="0 0 320 64">
             <polyline points="8,52 54,52 86,26 126,26 154,10 194,10 224,38 270,38 302,22"></polyline>
@@ -262,16 +262,16 @@
         </div>
         <div class="card" style="padding:22px;">
           <h3 style="font-size:1rem;font-weight:800;color:var(--t1);margin:0 0 14px;">
-            <i class="fas fa-project-diagram" style="color:var(--blue);margin-right:7px;"></i>流程速览
-            <span style="font-size:0.65rem;font-weight:600;color:var(--t3);letter-spacing:0.18em;margin-left:5px;">PIPELINE</span>
+            <i class="fas fa-project-diagram" style="color:var(--blue);margin-right:7px;"></i>供应链决策链路
+            <span style="font-size:0.65rem;font-weight:600;color:var(--t3);letter-spacing:0.18em;margin-left:5px;">CONTROL TOWER</span>
           </h3>
           <!-- 流程节点 -->
           <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
             <!-- 行1：数据 → M/M/c → M/G/c -->
             <div style="display:flex;align-items:center;gap:6px;">
               <div style="flex:1;padding:7px 6px;border-radius:8px;border:1.5px solid #93c5fd;background:rgba(219,234,254,0.45);text-align:center;">
-                <div style="font-size:0.7rem;font-weight:700;color:var(--blue);">📊 数据输入</div>
-                <div style="font-size:0.6rem;color:var(--t3);margin-top:1px;">UrbanEV CSV</div>
+                <div style="font-size:0.7rem;font-weight:700;color:var(--blue);">⚡ 供需输入</div>
+                <div style="font-size:0.6rem;color:var(--t3);margin-top:1px;">电价 · 需求 · 运力</div>
               </div>
               <span style="color:#93c5fd;font-size:1rem;flex-shrink:0;">→</span>
               <div style="flex:1;padding:7px 6px;border-radius:8px;border:1.5px solid #93c5fd;background:rgba(219,234,254,0.45);text-align:center;">
@@ -300,11 +300,11 @@
               <span style="color:#93c5fd;font-size:1rem;flex-shrink:0;">→</span>
               <div style="flex:1;padding:7px 6px;border-radius:8px;border:1.5px solid #a78bfa;background:rgba(237,233,254,0.55);text-align:center;">
                 <div style="font-size:0.7rem;font-weight:700;color:#7c3aed;">✅ 决策支持</div>
-                <div style="font-size:0.6rem;color:var(--t3);margin-top:1px;">参数优化</div>
+                <div style="font-size:0.6rem;color:var(--t3);margin-top:1px;">采购 · 扩容 · 调度</div>
               </div>
             </div>
           </div>
-          <p style="font-size:0.75rem;color:var(--t3);margin-top:10px;">实时参数调整，即时更新利润风险分布。</p>
+          <p style="font-size:0.75rem;color:var(--t3);margin-top:10px;">追踪上游成本、站点瓶颈与下游履约风险的联动。</p>
         </div>
       </div>
 

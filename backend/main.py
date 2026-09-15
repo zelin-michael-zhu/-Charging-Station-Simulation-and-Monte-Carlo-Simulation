@@ -22,8 +22,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="EV Charging Station Risk Simulator",
-    description="充电站净利润风险仿真 API（M/G/c 修正 + Monte Carlo）",
+    title="EV Charging Supply Chain Risk Simulator",
+    description="从能源采购、站点容量到车队履约的充电供应链风险仿真 API（M/G/c + Monte Carlo）",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -39,7 +39,7 @@ app.add_middleware(
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "message": "充电站仿真服务运行中"}
+    return {"status": "ok", "message": "充电供应链风险仿真服务运行中"}
 
 
 @app.post("/api/run-simulation", response_model=SimulationResponse)
